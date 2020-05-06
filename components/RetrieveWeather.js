@@ -1,55 +1,74 @@
 import React, {useState} from 'react';
-import {
-  StyleSheet,
-  View,
-  Text,
-  TextInput,
-  Image,
-  Button,
-  Alert,
-  TouchableWithoutFeedback,
-  Keyboard,
-} from 'react-native';
+import {StyleSheet, View, Text, Image, Alert} from 'react-native';
+import Geolocation from '@react-native-community/geolocation';
 let x = 1;
-let timer = 100000;
+
 export default function RetrieveWeather() {
   const [iconColor, setIconColor] = useState('');
   const [textColor, setTextColor] = useState('black');
   const [openWeather, setOpenWeather] = useState('');
-  const [isOnline, setIsOnline] = useState('');
+  const [isOnline, setIsOnline] = useState(false);
   const [backgroundColor, setBackgrounColor] = useState('');
-  const [userInput, setUserInput] = useState('');
-  const search = () => {
-    console.log(userInput);
-    fetch(
-      'http://api.openweathermap.org/data/2.5/weather?q=' +
-        userInput +
-        '&appid=a51fdc2ab92bde81479d6a1091f5cde2',
-    )
-      .then(res => res.json())
-      .then(result => {
-        setOpenWeather(result);
-        getTime(openWeather.dt);
-        while (timer >= 0) {
-          timer--;
-          console.log(timer);
-        }
-        if (timer <= 0 && openWeather.dt !== undefined) {
-          setIsOnline(true);
-        } else {
+  const [state, setState] = useState({
+    ready: false,
+    where: {lat: null, lng: null},
+    error: null,
+  });
+  const RetrieveUserLocation = () => {
+    let geoOptions = {
+      enableHighAccuracy: true,
+      timeOut: 20000,
+      maximumAge: 60 * 60 * 24,
+    };
+    if (!state.ready && !isOnline) {
+      Geolocation.getCurrentPosition(geoSuccess, geoFailure, geoOptions);
+
+      function geoSuccess(position) {
+        console.log(position);
+        setState({
+          ready: true,
+          where: {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          },
+        });
+      }
+      function geoFailure(err) {
+        setState({error: err.message});
+      }
+    }
+    if (state.ready && !isOnline) {
+      console.log(isOnline);
+      fetch(
+        'http://api.openweathermap.org/data/2.5/weather?lat=' +
+          state.where.lat +
+          '&lon=' +
+          state.where.lng +
+          '&appid=f0aa9281647b302f2b12fcc7b9b901c6',
+      )
+        .then(res => res.json())
+        .then(result => {
+          setOpenWeather(result);
+          getTime(openWeather.dt);
+          if (openWeather.dt !== undefined) {
+            setIsOnline(true);
+          } else if (openWeather.message !== undefined) {
+            Alert.alert(openWeather.message);
+            setIsOnline(false);
+          } else {
+            setIsOnline(false);
+          }
+        })
+        .catch(function(error) {
           setIsOnline(false);
-          Alert.alert(openWeather.message);
-        }
-      })
-      .catch(function(error) {
-        setIsOnline(false);
-        console.log(
-          'There has been a problem with your fetch operation: ' +
-            error.message,
-        );
-        // ADD THIS THROW error
-        throw error;
-      });
+          console.log(
+            'There has been a problem with your fetch operation: ' +
+              error.message,
+          );
+          // ADD THIS THROW error
+          throw error;
+        });
+    }
   };
   const getTime = unixTime => {
     if (isOnline) {
@@ -228,17 +247,8 @@ export default function RetrieveWeather() {
   } else {
     return (
       <View>
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <TextInput
-            style={styles.inputField}
-            placeholder={'userInput'}
-            onChangeText={val => setUserInput(val)}
-            value={userInput}
-            clearTextOnFocus={true}
-          />
-        </TouchableWithoutFeedback>
-        <Button title={'LOL'} onPress={search} />
-        <Text> {userInput} </Text>
+        {RetrieveUserLocation()}
+        <Text>Loading...</Text>
       </View>
     );
   }
