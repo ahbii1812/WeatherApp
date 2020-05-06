@@ -1,0 +1,4 @@
+        <Text>
+          {' '}
+          {openWeather && openWeather.weather[0] && openWeather.weather[0].icon}
+        </Text>
